@@ -1,26 +1,31 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Install system dependencies
-apt-get update
-apt-get install -y curl redis-server python3-dev build-essential
+# quick helper to retry network ops
+retry() {
+  n=0
+  until [ $n -ge 3 ]
+  do
+    "$@" && break
+    n=$((n+1))
+    echo "Retry $n for: $*"
+    sleep 2
+  done
+}
 
-# Install NodeJS 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt-get install -y nodejs
-
-# Install bench
-pip install frappe-bench
-
-# Create bench directory
-bench init --frappe-branch version-14 erpnext-dev
+# init bench (skip heavy assets)
+bench init --frappe-branch version-14 --skip-assets erpnext-dev
 
 cd erpnext-dev
 
-# Get ERPNext
+# fetch ERPNext app
 bench get-app erpnext --branch version-14
 
-# Create site with SQLite
-bench new-site demo.localhost --db-type=sqlite --admin-password=admin
+# create site with SQLite and default admin
+bench new-site demo.localhost --db-type=sqlite --admin-password=admin --no-mariadb-socket
 
+# install app
 bench --site demo.localhost install-app erpnext
+
+# don't build assets here (start.sh will do it at runtime)
+
